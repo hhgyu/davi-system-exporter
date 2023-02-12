@@ -1,15 +1,14 @@
 ﻿using MaterialDesignExtensions.Controls;
 using MaterialDesignThemes.Wpf;
-using Microsoft.Office.Interop.Excel;
 using System;
 using System.Collections.Specialized;
 using System.IO;
-using System.IO.Ports;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using worksheet_data_generate.Domain;
 using worksheet_data_generate.Extensions;
+using worksheet_data_generate.Utils;
 
 namespace worksheet_data_generate
 {
@@ -18,13 +17,15 @@ namespace worksheet_data_generate
     /// </summary>
     public partial class MainWindow : MaterialWindow
     {
-        private readonly MainWindowViewModel _viewModel;
-
         public const string DialogHostName = "RootDialog";
 
-        IExcelWorker? _worker = null;
+        private readonly MainWindowViewModel _viewModel;
+        private ThrottleDispatcher _throttleDispatcher = new ThrottleDispatcher(50);
 
-        bool scrollLock = false;
+        private IExcelWorker? _worker = null;
+
+        private bool scrollLock = false;
+        private bool scrollEventWorking = false;
 
         public MainWindow()
         {
@@ -41,18 +42,40 @@ namespace worksheet_data_generate
             {
                 if(!scrollLock)
                 {
-                    // scroll the new item into view   
-                    LogListBox.ScrollIntoView(e.NewItems[0]);
+                    scrollEventWorking = true;
+                    // scroll the new item into view
+                    _throttleDispatcher.Throttle(() =>
+                    {
+                        LogListBox.Dispatcher.BeginInvoke(() =>
+                        {
+                            LogListBox.ScrollIntoView(e.NewItems[0]);
+
+                            scrollEventWorking = false;
+                        });
+                    });
                 }
             }
         }
 
         private void NewExcel_Click(object sender, RoutedEventArgs e)
         {
-            _worker?.Dispose();
+            var worker = _worker;
+            if(worker != null)
+            {
+                _viewModel.CreateWorker = false;
+                worker.Stoped += null;
+                worker.Dispose();
+            }
 
-            _worker = new ExcelWorker();
+            _worker = new ExcelWorker(_viewModel.DataCountNumber);
+            _worker.Stoped += Worker_Stoped;
+            
             _worker.Create();
+            _viewModel.CreateWorker = true;
+        }
+
+        private void Worker_Stoped(object? sender, EventArgs e)
+        {
         }
 
         private async void OpenExcel_Click(object sender, RoutedEventArgs e)
@@ -70,13 +93,23 @@ namespace worksheet_data_generate
 
             if(result.Confirmed && result.File != null)
             {
-                _worker?.Dispose();
+                var worker = _worker;
+                if (worker != null)
+                {
+                    _viewModel.CreateWorker = false;
+                    worker.Stoped += null;
+                    worker.Dispose();
+                }
 
-                _worker = new ExcelWorker();
-                string errorMessage = "";
-                if (!_worker.Open(result.File, out errorMessage))
+                _worker = new ExcelWorker(_viewModel.DataCountNumber);
+                _worker.Stoped += Worker_Stoped;
+                if (!_worker.Open(result.File, out string errorMessage))
                 {
                     await DialogHost.Show(errorMessage, dialogIdentifier: DialogHostName);
+                }
+                else
+                {
+                    _viewModel.CreateWorker = true;
                 }
             }
         }
@@ -95,32 +128,9 @@ namespace worksheet_data_generate
 
             try
             {
-                var worker = new ExcelWorker();
+                var worker = new ExcelWorker(0);
                 var result = worker.Check();
                 worker.Dispose();
-                
-                /*
-                IExcelWorker _worker2 = new ExcelWorker();
-                _worker2.Create();
-                _worker2.Start();
-                MessageBox.Show("1");
-
-                await Task.Delay(1000);
-
-                for (int k= 0; k < 1000; k++)
-                {
-                    for (int i = 0; i < 1000; i++)
-                    {
-                        _worker2.Enqueue(DateTime.Now, new string[] { ((k * 1000) + i).ToString(), ((k * 1000) + i + 1).ToString(), ((k * 1000) + i + 2).ToString(), ((k * 1000) + i + 3).ToString() });
-                    }
-
-                    await Task.Delay(1000);
-                }
-
-                MessageBox.Show("asdfasf");
-
-                _worker2.Dispose();
-                */
 
                 if (!result)
                 {
@@ -135,6 +145,10 @@ namespace worksheet_data_generate
 
         private void _viewModel_ReceivedEvent(object sender, ReceivedEventArgs e)
         {
+            if(e.Values.Length == _worker?.ValueRows)
+            {
+
+            }
             _worker?.Enqueue(e.Timestamp, e.Values);
         }
 
@@ -148,6 +162,8 @@ namespace worksheet_data_generate
                 scrollViewer.ScrollChanged -= ScrollViewer_ScrollChanged;
             }
 
+            _worker?.Stop();
+
             _viewModel.Close();
 
             _worker?.Dispose();
@@ -156,6 +172,11 @@ namespace worksheet_data_generate
 
         private void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
         {
+            if(scrollEventWorking == true)
+            {
+                return;
+            }
+
             if (e.VerticalChange != 0)
             {
                 var scrollViewer = sender as ScrollViewer;
@@ -188,6 +209,8 @@ namespace worksheet_data_generate
         {
             if (_viewModel.Connected)
             {
+                _worker?.Stop();
+
                 _viewModel.Close();
             }
             else
@@ -225,6 +248,11 @@ namespace worksheet_data_generate
             {
                 _worker?.Stop();
             }
+        }
+
+        private void ExportData_Click(object sender, RoutedEventArgs e)
+        {
+            _worker?.Export();
         }
     }
 }

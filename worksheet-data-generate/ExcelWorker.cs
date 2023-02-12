@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -10,25 +9,34 @@ namespace worksheet_data_generate
 {
     class ExcelWorker : IExcelWorker
     {
+        public event EventHandler? Stoped;
+
         private class ReceivedData
         {
-            public DateTime Date;
-            public string[] Values;
+            public DateTime Date = DateTime.Now;
+            public string[] Values = new string[] { };
         }
 
-        private const int MaxDataLine = 100;
+        private readonly int MaxDataLine = 100;
         private Application? _app = null;
         private Workbook? _workbook = null;
         private Worksheet? _worksheetData = null;
         private Worksheet? _worksheetLastData = null;
 
-        private List<ReceivedData> _datas = new List<ReceivedData>();
+        private List<string[]> _logExcelDatas = new List<string[]>();
+        private List<string[]> _currentExcelDatas = new List<string[]>();
+        private bool _isNewData = false;
 
-        private int currentRow = 2;
-        private int valueRows = 1;
+        private int _value_rows = -1;
+        public int ValueRows
+        {
+            get { return _value_rows; }
+        }
 
         private Thread? _thread = null;
         private bool _isStop = false;
+
+        public ExcelWorker(int data_count) { MaxDataLine = data_count; }
 
         public void Enqueue(DateTime time, string[] values)
         {
@@ -37,18 +45,37 @@ namespace worksheet_data_generate
                 return;
             }
 
-            lock (_datas)
+            if(_value_rows  == -1)
             {
-                valueRows = values.Length;
-                _datas.Add(new ReceivedData
-                {
-                    Date = time,
-                    Values = values
-                });
+                _value_rows = values.Length;
+            }
 
-                if (_datas.Count > MaxDataLine * 10)
+            if(ValueRows != values.Length)
+            {
+                return;
+            }
+
+            lock(_currentExcelDatas)
+            {
+                _isNewData = true;
+
+                string[] tmpValues = new string[ValueRows + 1];
+                tmpValues[0] = time.ToString("HH:mm:ss.FFF");
+                for (int i = 0; i < ValueRows; i++)
                 {
-                    _datas.RemoveRange(0, _datas.Count - (MaxDataLine * 10));
+                    tmpValues[i + 1] = values[i];
+                }
+
+                _currentExcelDatas.Add(tmpValues);
+                if (_currentExcelDatas.Count > MaxDataLine)
+                {
+                    _currentExcelDatas.RemoveRange(0, _currentExcelDatas.Count - MaxDataLine);
+                }
+
+                _logExcelDatas.Add(tmpValues);
+                if (_logExcelDatas.Count > 100000)
+                {
+                    _logExcelDatas.RemoveRange(0, _logExcelDatas.Count - 100000);
                 }
             }
         }
@@ -59,137 +86,98 @@ namespace worksheet_data_generate
             {
                 while (!_isStop)
                 {
-                    List<ReceivedData> receivedDatas = new List<ReceivedData>();
-
-                    lock (_datas)
+                    if(_isNewData)
                     {
-                        for (int i = 0; i < _datas.Count; i++)
-                        {
-                            receivedDatas.Add(_datas[i]);
-                        }
-                    }
+                        _isNewData= false;
 
-                    try
-                    {
-                        if (receivedDatas.Count > 0)
+                        try
                         {
-                            if (receivedDatas.Count > MaxDataLine)
-                            {
-                                int removeCount = receivedDatas.Count - MaxDataLine;
-                                _datas.RemoveRange(0, removeCount);
-                                receivedDatas.RemoveRange(0, removeCount);
-                            }
+                            string lastTime = "";
 
                             var worksheetLastData = _worksheetLastData;
                             var worksheetData = _worksheetData;
+
                             if (worksheetLastData != null && worksheetData != null)
                             {
+                                int count = _currentExcelDatas.Count;
+                                while(count > 0)
                                 {
-                                    ReceivedData data = receivedDatas.Last();
+                                    object[,] receivedDatas = new object[count, 1 + ValueRows];
+                                    object[,] lastDatas = new object[1, 1 + ValueRows];
 
-                                    var range = worksheetData.Range[worksheetData.Cells[2, 1], worksheetData.Cells[2, data.Values.Length + 1]];
-
-                                    object[] values = new object[data.Values.Length + 1];
-                                    values[0] = data.Date;
-                                    for(int i = 0; i < data.Values.Length; i++)
+                                    lock (_currentExcelDatas)
                                     {
-                                        values[i + 1] = data.Values[i];
+                                        if (count > 0)
+                                        {
+                                            count = _currentExcelDatas.Count;
+
+                                            for (int i = 0; i < count; i++)
+                                            {
+                                                for (int j = 0; j < 1 + ValueRows; j++)
+                                                {
+                                                    receivedDatas[i, j] = _currentExcelDatas[i][j];
+                                                }
+                                            }
+
+                                            for (int j = 0; j < 1 + ValueRows; j++)
+                                            {
+                                                lastDatas[0, j] = _currentExcelDatas[0][j];
+                                            }
+
+                                            lastTime = _currentExcelDatas.Last().First();
+                                        }
                                     }
 
-                                    range.Value = values;
-                                }
-
-                                int startRow = 2;
-                                int endRow = 2 + MaxDataLine;
-                                if (currentRow < endRow)
-                                {
-                                    int maxLoop = Math.Min(MaxDataLine - (currentRow - startRow), receivedDatas.Count);
-                                    while (maxLoop-- > 0)
+                                    if(count <= 0)
                                     {
-                                        ReceivedData data = receivedDatas[0];
-                                        receivedDatas.RemoveAt(0);
-                                        lock (_datas)
-                                        {
-                                            _datas.RemoveAt(0);
-                                        }
-
-                                        var range = worksheetData.Range[worksheetData.Cells[currentRow, 1], worksheetData.Cells[currentRow, data.Values.Length + 1]];
-
-                                        object[] values = new object[data.Values.Length + 1];
-                                        values[0] = data.Date;
-                                        for (int i = 0; i < data.Values.Length; i++)
-                                        {
-                                            values[i + 1] = data.Values[i];
-                                        }
-
-                                        range.Value = values;
-
-                                        currentRow++;
+                                        break;
                                     }
-                                }
-                                else
-                                {
-                                    int newDataRows = receivedDatas.Count - (MaxDataLine - (currentRow - startRow));
-                                    if (newDataRows > 0)
+
                                     {
-                                        if (MaxDataLine != newDataRows)
-                                        {
-                                            var copyRange = worksheetData.Range[worksheetData.Cells[startRow + newDataRows, 1], worksheetData.Cells[endRow - 1, 1 + valueRows]];
-                                            var pasteRange = worksheetData.Range[worksheetData.Cells[startRow, 1], worksheetData.Cells[endRow - newDataRows - 1, 1 + valueRows]];
-                                            copyRange.Copy(pasteRange);
-                                        }
+                                        int startRow = 2;
+                                        var copyRange = worksheetLastData.Range[worksheetLastData.Cells[startRow, 1], worksheetLastData.Cells[startRow, 1 + ValueRows]];
+
+                                        copyRange.Value2 = lastDatas;
                                     }
-                                    
 
-                                    currentRow -= newDataRows;
-
-                                    while (newDataRows-- > 0)
                                     {
-                                        ReceivedData data = receivedDatas[0];
-                                        receivedDatas.RemoveAt(0);
-                                        lock (_datas)
-                                        {
-                                            _datas.RemoveAt(0);
-                                        }
+                                        int startRow = 2;
+                                        int endRow = 2 + Math.Min(count - 1, MaxDataLine);
+                                        var copyRange = worksheetData.Range[worksheetData.Cells[startRow, 1], worksheetData.Cells[endRow, 1 + ValueRows]];
 
-                                        var range = worksheetData.Range[worksheetData.Cells[currentRow, 1], worksheetData.Cells[currentRow, data.Values.Length + 1]];
-
-                                        object[] values = new object[data.Values.Length + 1];
-                                        values[0] = data.Date;
-                                        for (int i = 0; i < data.Values.Length; i++)
-                                        {
-                                            values[i + 1] = data.Values[i];
-                                        }
-
-                                        range.Value = values;
-
-                                        currentRow++;
+                                        copyRange.Value2 = receivedDatas;
                                     }
+
+                                    break;
                                 }
                             }
                         }
-
-                    }
-                    catch (ThreadInterruptedException) { throw; }
-                    catch (Exception ex) { 
-                        System.Diagnostics.Debug.WriteLine(ex);
-                        if(!IsOpened(_app, _workbook))
+                        catch (ThreadInterruptedException) { throw; }
+                        catch (Exception ex)
                         {
-                            System.Diagnostics.Debug.WriteLine("죽음");
-                            break;
+                            System.Diagnostics.Debug.WriteLine(ex);
+                            if (!IsOpened(_app, _workbook))
+                            {
+                                System.Diagnostics.Debug.WriteLine("죽음");
+                                break;
+                            }
                         }
                     }
 
-                    Thread.Sleep(1000);
+                    Thread.Sleep(100);
                 }
             }
             catch (ThreadInterruptedException) { }
-
-            lock(_datas)
+            finally
             {
-                _isStop = true;
+                lock (_currentExcelDatas)
+                {
+                    _isStop = true;
 
-                _datas.Clear();
+                    _currentExcelDatas.Clear();
+                }
+
+                Stoped?.Invoke(this, new EventArgs());
             }
         }
 
@@ -233,8 +221,6 @@ namespace worksheet_data_generate
                     worksheetLastData.Cells[1, 1] = "시간";
                     worksheetLastData.Cells[1, 2] = "데이터1";
                 }
-
-                currentRow = 2;
                 
                 worksheetData?.Activate();
 
@@ -326,7 +312,6 @@ namespace worksheet_data_generate
                 }
             }
 
-            currentRow = 2;
             app.Visible = true;
             errorMessage = "";
             return true;
@@ -356,6 +341,14 @@ namespace worksheet_data_generate
 
         public void Dispose()
         {
+            Stoped = null;
+            Stop();
+
+            lock (_currentExcelDatas)
+            {
+                _logExcelDatas.Clear();
+            }
+            
             var workbook = _workbook;
             var worksheetData = _worksheetData;
             var worksheetLastData = _worksheetLastData;
@@ -400,8 +393,6 @@ namespace worksheet_data_generate
             _worksheetLastData = null;
             _workbook = null;
             _app = null;
-
-            Stop();
         }
 
         public void Start()
@@ -411,6 +402,7 @@ namespace worksheet_data_generate
                 Stop();
             }
 
+            _value_rows = -1;
             _isStop = false;
 
             _thread = new Thread(Run);
@@ -419,11 +411,11 @@ namespace worksheet_data_generate
 
         public void Stop()
         {
-            lock (_datas)
+            lock (_currentExcelDatas)
             {
                 _isStop = true;
 
-                _datas.Clear();
+                _currentExcelDatas.Clear();
             }
 
             var t = _thread;
@@ -442,7 +434,77 @@ namespace worksheet_data_generate
             _thread = null;
         }
 
-        private static bool IsOpened(Application app, Workbook workbook)
+        public void Export()
+        {
+            try
+            {
+                var app = _app;
+
+                if (app != null)
+                {
+                    var workbookSheet = app.Worksheets.Add() as Worksheet;
+
+                    if (workbookSheet != null)
+                    {
+                        workbookSheet.Name = $"로그 {DateTime.Now.ToString("yyyyMMddHHmmss")}";
+
+                        workbookSheet.Cells[1, 1] = "시간";
+                        for(int i=0; i< ValueRows; i++)
+                        {
+                            workbookSheet.Cells[1, 2 + i] = $"데이터{i +1}";
+                        }
+
+                        int count = _logExcelDatas.Count;
+                        while (count > 0)
+                        {
+                            object[,] receivedDatas = new object[count, 1 + ValueRows];
+
+                            lock (_currentExcelDatas)
+                            {
+                                if (count > 0)
+                                {
+                                    count = _logExcelDatas.Count;
+
+                                    for (int i = 0; i < count; i++)
+                                    {
+                                        for (int j = 0; j < 1 + ValueRows; j++)
+                                        {
+                                            receivedDatas[i, j] = _logExcelDatas[i][j];
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (count <= 0)
+                            {
+                                break;
+                            }
+
+                            {
+                                int startRow = 2;
+                                int endRow = 2 + count - 1;
+                                var copyRange = workbookSheet.Range[workbookSheet.Cells[startRow, 1], workbookSheet.Cells[endRow, 1 + ValueRows]];
+
+                                copyRange.Value2 = receivedDatas;
+                            }
+
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (ThreadInterruptedException) { throw; }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+                if (!IsOpened(_app, _workbook))
+                {
+                    System.Diagnostics.Debug.WriteLine("죽음");
+                }
+            }
+        }
+
+        private static bool IsOpened(Application? app, Workbook? workbook)
         {
             try
             {
@@ -456,6 +518,13 @@ namespace worksheet_data_generate
 
     interface IExcelWorker : IDisposable
     {
+        event EventHandler? Stoped;
+
+        int ValueRows
+        {
+            get;
+        }
+
         bool Check();
         void Enqueue(DateTime time, string[] values);
         void Create();
@@ -463,5 +532,7 @@ namespace worksheet_data_generate
 
         void Start();
         void Stop();
+
+        void Export();
     }
 }

@@ -8,11 +8,26 @@
         xmlns:local="clr-namespace:worksheet_data_generate"
         xmlns:converters="clr-namespace:worksheet_data_generate.Converters"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="400"
+        Title="DAVI 시스템" Height="450" Width="400"
         Loaded="Window_Loaded"
         Unloaded="Window_Unloaded">
     <Window.Resources>
         <converters:BooleanToReverseConverter x:Key="BooleanToReverseConverter"/>
+
+        <x:Array x:Key="BuadRates" Type="sys:String" 
+            xmlns:sys="clr-namespace:System;assembly=mscorlib">
+            <sys:String>9600</sys:String>
+            <sys:String>57600</sys:String>
+            <sys:String>115200</sys:String>
+        </x:Array>
+        
+        <x:Array x:Key="DataCounts" Type="sys:String" 
+            xmlns:sys="clr-namespace:System;assembly=mscorlib">
+            <sys:String>100</sys:String>
+            <sys:String>1000</sys:String>
+            <sys:String>10000</sys:String>
+            <sys:String>100000</sys:String>
+        </x:Array> 
     </Window.Resources>
     <md:DialogHost DialogTheme="Inherit"
                    Identifier="RootDialog"
@@ -24,6 +39,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
@@ -32,7 +48,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Grid Grid.Row="0" Grid.Column="0">
+                <Grid Grid.Row="0" Grid.Column="0" Margin="0, 0, 5px, 0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -42,14 +58,26 @@
                           IsEnabled="{Binding Connected, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource BooleanToReverseConverter}}"
                           ItemsSource="{Binding SerialPorts, UpdateSourceTrigger=PropertyChanged}"
                           SelectedItem="{Binding SelectedItem, UpdateSourceTrigger=PropertyChanged}" />
-                    <Button Grid.Column="1"
+                    <Button Grid.Column="1" Width="40px" Height="40px"
                         IsEnabled="{Binding Connected, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource BooleanToReverseConverter}}"
                         Style="{StaticResource MaterialDesignIconButton}" Click="RefreshSerialPort_Click">
                         <md:PackIcon Kind="Refresh" VerticalAlignment="Center" />
                     </Button>
                 </Grid>
 
-                <Button Grid.Row="0" Grid.Column="1" Margin="0, 0, 5px, 0" Click="SerialPortConnect_Click">
+                <ComboBox Grid.Row="0" Grid.Column="1" Margin="5px, 0, 0, 0" 
+                          md:HintAssist.Hint="데이터갯수" VerticalAlignment="Center"
+                          IsEnabled="{Binding Connected, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource BooleanToReverseConverter}}"
+                          ItemsSource="{StaticResource DataCounts}"
+                          SelectedItem="{Binding DataCount, UpdateSourceTrigger=PropertyChanged}" />
+
+                <ComboBox Grid.Row="1" Grid.Column="0" Margin="0, 5px, 5px, 5px" 
+                          md:HintAssist.Hint="통신속도" VerticalAlignment="Center"
+                          IsEnabled="{Binding Connected, UpdateSourceTrigger=PropertyChanged, Converter={StaticResource BooleanToReverseConverter}}"
+                          ItemsSource="{StaticResource BuadRates}"
+                          SelectedItem="{Binding BaudRate, UpdateSourceTrigger=PropertyChanged}" />
+
+                <Button Grid.Row="1" Grid.Column="1" Margin="5px, 5px, 0, 5px"  Click="SerialPortConnect_Click">
                     <StackPanel Orientation="Horizontal">
                         <md:PackIcon VerticalAlignment="Center" d:Kind="PowerPlug">
                             <md:PackIcon.Style>
@@ -78,7 +106,7 @@
                     </StackPanel>
                 </Button>
 
-                <Button Grid.Row="1" Grid.Column="0" Margin="0, 0, 5px, 0" Click="NewExcel_Click"
+                <Button Grid.Row="2" Grid.Column="0" Margin="0, 5px, 5px, 5px" Click="NewExcel_Click"
                     IsEnabled="{Binding Connected, UpdateSourceTrigger=PropertyChanged}">
                     <StackPanel Orientation="Horizontal">
                         <md:PackIcon Kind="FileExport" VerticalAlignment="Center" />
@@ -86,7 +114,7 @@
                     </StackPanel>
                 </Button>
 
-                <Button Grid.Row="1" Grid.Column="1" Margin="5px, 0, 0, 0" Click="OpenExcel_Click" 
+                <Button Grid.Row="2" Grid.Column="1" Margin="5px, 5px, 0, 5px" Click="OpenExcel_Click" 
                     IsEnabled="{Binding Connected, UpdateSourceTrigger=PropertyChanged}">
                     <StackPanel Orientation="Horizontal">
                         <md:PackIcon Kind="OpenInNew" VerticalAlignment="Center" />
@@ -94,7 +122,20 @@
                     </StackPanel>
                 </Button>
 
-                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Margin="0, 10px" Click="DataParseStart_Click">
+                <Button Grid.Row="3" Grid.Column="0" Margin="0, 5px, 5px, 5px" Click="DataParseStart_Click">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                            <Setter Property="IsEnabled" Value="True" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Connected, UpdateSourceTrigger=PropertyChanged}" Value="False">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding CreateWorker, UpdateSourceTrigger=PropertyChanged}" Value="False">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
                     <StackPanel Orientation="Horizontal">
                         <md:PackIcon VerticalAlignment="Center" d:Kind="Play">
                             <md:PackIcon.Style>
@@ -123,8 +164,26 @@
                     </StackPanel>
                 </Button>
 
-                <ListBox Grid.Row="3" Grid.ColumnSpan="2" x:Name="LogListBox"
+                <Button Grid.Row="3" Grid.Column="1" Margin="5px, 5px, 0, 5px" Click="ExportData_Click">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                            <Setter Property="IsEnabled" Value="True" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CreateWorker, UpdateSourceTrigger=PropertyChanged}" Value="False">
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <md:PackIcon Kind="TableArrowRight" VerticalAlignment="Center" />
+                        <TextBlock HorizontalAlignment="Center" Margin="8,0,0,0">로그시트만들기</TextBlock>
+                    </StackPanel>
+                </Button>
+
+                <ListBox Grid.Row="4" Grid.ColumnSpan="2" x:Name="LogListBox"
                          VirtualizingPanel.IsVirtualizing="True"
+                         VirtualizingPanel.VirtualizationMode="Recycling"
                          ItemsSource="{Binding LogMessages, UpdateSourceTrigger=PropertyChanged}" />
             </Grid>
             
