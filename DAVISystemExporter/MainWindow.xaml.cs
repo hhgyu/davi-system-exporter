@@ -163,7 +163,7 @@ namespace DAVISystemExporter
             _worker?.Enqueue(e.Timestamp, e.Values);
         }
 
-        private void Window_Unloaded(object sender, RoutedEventArgs e)
+        private void Window_Closed(object sender, EventArgs e)
         {
             ((INotifyCollectionChanged)_viewModel.LogMessages).CollectionChanged -= MainWindow_CollectionChanged;
 
