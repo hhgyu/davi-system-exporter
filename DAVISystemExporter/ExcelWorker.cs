@@ -121,7 +121,7 @@ namespace DAVISystemExporter
 
                                             for (int j = 0; j < 1 + ValueRows; j++)
                                             {
-                                                lastDatas[0, j] = _currentExcelDatas[0][j];
+                                                lastDatas[0, j] = _currentExcelDatas[count - 1][j];
                                             }
 
                                             lastTime = _currentExcelDatas.Last().First();
