@@ -36,6 +36,8 @@ namespace DAVISystemExporter
         private Thread? _thread = null;
         private bool _isStop = false;
 
+        private object _exportLockObj = new object();
+
         public ExcelWorker(int data_count) { MaxDataLine = data_count; }
 
         public void Enqueue(DateTime time, string[] values)
@@ -436,70 +438,73 @@ namespace DAVISystemExporter
 
         public void Export()
         {
-            try
+            lock(_exportLockObj)
             {
-                var app = _app;
-
-                if (app != null)
+                try
                 {
-                    var workbookSheet = app.Worksheets.Add() as Worksheet;
+                    var app = _app;
 
-                    if (workbookSheet != null)
+                    if (app != null)
                     {
-                        workbookSheet.Name = $"로그 {DateTime.Now.ToString("yyyyMMddHHmmss")}";
+                        var workbookSheet = app.Worksheets.Add() as Worksheet;
 
-                        workbookSheet.Cells[1, 1] = "시간";
-                        for(int i=0; i< ValueRows; i++)
+                        if (workbookSheet != null)
                         {
-                            workbookSheet.Cells[1, 2 + i] = $"데이터{i +1}";
-                        }
+                            workbookSheet.Name = $"로그 {DateTime.Now.ToString("yyyyMMddHHmmss")}";
 
-                        int count = _logExcelDatas.Count;
-                        while (count > 0)
-                        {
-                            object[,] receivedDatas = new object[count, 1 + ValueRows];
-
-                            lock (_currentExcelDatas)
+                            workbookSheet.Cells[1, 1] = "시간";
+                            for (int i = 0; i < ValueRows; i++)
                             {
-                                if (count > 0)
-                                {
-                                    count = _logExcelDatas.Count;
+                                workbookSheet.Cells[1, 2 + i] = $"데이터{i + 1}";
+                            }
 
-                                    for (int i = 0; i < count; i++)
+                            int count = _logExcelDatas.Count;
+                            while (count > 0)
+                            {
+                                object[,] receivedDatas = new object[count, 1 + ValueRows];
+
+                                lock (_currentExcelDatas)
+                                {
+                                    if (count > 0)
                                     {
-                                        for (int j = 0; j < 1 + ValueRows; j++)
+                                        count = _logExcelDatas.Count;
+
+                                        for (int i = 0; i < count; i++)
                                         {
-                                            receivedDatas[i, j] = _logExcelDatas[i][j];
+                                            for (int j = 0; j < 1 + ValueRows; j++)
+                                            {
+                                                receivedDatas[i, j] = _logExcelDatas[i][j];
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            if (count <= 0)
-                            {
+                                if (count <= 0)
+                                {
+                                    break;
+                                }
+
+                                {
+                                    int startRow = 2;
+                                    int endRow = 2 + count - 1;
+                                    var copyRange = workbookSheet.Range[workbookSheet.Cells[startRow, 1], workbookSheet.Cells[endRow, 1 + ValueRows]];
+
+                                    copyRange.Value2 = receivedDatas;
+                                }
+
                                 break;
                             }
-
-                            {
-                                int startRow = 2;
-                                int endRow = 2 + count - 1;
-                                var copyRange = workbookSheet.Range[workbookSheet.Cells[startRow, 1], workbookSheet.Cells[endRow, 1 + ValueRows]];
-
-                                copyRange.Value2 = receivedDatas;
-                            }
-
-                            break;
                         }
                     }
                 }
-            }
-            catch (ThreadInterruptedException) { throw; }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine(ex);
-                if (!IsOpened(_app, _workbook))
+                catch (ThreadInterruptedException) { throw; }
+                catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("죽음");
+                    System.Diagnostics.Debug.WriteLine(ex);
+                    if (!IsOpened(_app, _workbook))
+                    {
+                        System.Diagnostics.Debug.WriteLine("죽음");
+                    }
                 }
             }
         }
