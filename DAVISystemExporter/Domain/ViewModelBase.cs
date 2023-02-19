@@ -2,7 +2,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace worksheet_data_generate.Domain
+namespace DAVISystemExporter.Domain
 {
     public abstract class ViewModelBase : INotifyPropertyChanged
     {

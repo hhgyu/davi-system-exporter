@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-namespace worksheet_data_generate.Utils
+namespace DAVISystemExporter.Utils
 { /// <summary>
   /// The Throttle dispatcher provides one Action invoking at a specific time interval
   /// </summary>
@@ -29,7 +26,7 @@ namespace worksheet_data_generate.Utils
         /// </summary>
         /// <param name="action">Action that will be invoked</param>
         /// <returns>Task that will complete when one of called Action will be invoked</returns>
-        public Task ThrottleAsync(Func<Task> action)
+        public Task? ThrottleAsync(Func<Task> action)
         {
             return base.ThrottleAsync(() =>
             {
@@ -60,15 +57,15 @@ namespace worksheet_data_generate.Utils
     public class ThrottleDispatcher<T>
     {
         #region --- private fields ---
-        private Func<Task<T>> functToInvoke;
+        private Func<Task<T>>? functToInvoke;
         private readonly int interval;
         private readonly bool isIntervalSinceInvokeTime;
         private readonly bool resetIntervalOnException;
         private readonly object locker = new object();
         private bool busy;
         private bool waiting;
-        private Task<T> waitingTask;
-        private Task intervalTask;
+        private Task<T>? waitingTask;
+        private Task? intervalTask;
         private DateTime? invokeStartTime;
         #endregion
 
@@ -93,7 +90,7 @@ namespace worksheet_data_generate.Utils
         /// </summary>
         /// <param name="functToInvoke">Function that will be invoked</param>
         /// <returns>Task with a result that will complete when one of called Function will be invoked</returns>
-        public Task<T> ThrottleAsync(Func<Task<T>> functToInvoke)
+        public Task<T>? ThrottleAsync(Func<Task<T>>? functToInvoke)
         {
             lock (locker)
             {
@@ -104,7 +101,7 @@ namespace worksheet_data_generate.Utils
                     return GetWaitingTask();
                 }
 
-                Task<T> actionTask = GetActionTask();
+                var actionTask = GetActionTask();
 
                 intervalTask = Task.Run(() => ProcessInterval(actionTask));
 
@@ -114,15 +111,15 @@ namespace worksheet_data_generate.Utils
         #endregion
 
         #region --- private methods ---
-        private Task<T> GetActionTask()
+        private Task<T>? GetActionTask()
         {
             busy = true;
             invokeStartTime = DateTime.UtcNow;
-            Task<T> actionTask = this.functToInvoke.Invoke();
+            var actionTask = this.functToInvoke?.Invoke();
             return actionTask;
         }
 
-        private Task<T> GetWaitingTask()
+        private Task<T>? GetWaitingTask()
         {
             if (waiting)
             {
@@ -135,9 +132,9 @@ namespace worksheet_data_generate.Utils
             return waitingTask;
         }
 
-        private Task<T> ProcessWaitingTask()
+        private Task<T>? ProcessWaitingTask()
         {
-            intervalTask.Wait();
+            intervalTask?.Wait();
             lock (locker)
             {
                 waiting = false;
@@ -145,11 +142,11 @@ namespace worksheet_data_generate.Utils
             }
         }
 
-        private void ProcessInterval(Task actionTask)
+        private void ProcessInterval(Task? actionTask)
         {
             try
             {
-                actionTask.Wait();
+                actionTask?.Wait();
                 DelayToNextProcess();
             }
             catch

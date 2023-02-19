@@ -1,4 +1,7 @@
-﻿using MaterialDesignExtensions.Controls;
+﻿using DAVISystemExporter.Domain;
+using DAVISystemExporter.Extensions;
+using DAVISystemExporter.Utils;
+using MaterialDesignExtensions.Controls;
 using MaterialDesignThemes.Wpf;
 using System;
 using System.Collections.Specialized;
@@ -6,11 +9,8 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using worksheet_data_generate.Domain;
-using worksheet_data_generate.Extensions;
-using worksheet_data_generate.Utils;
 
-namespace worksheet_data_generate
+namespace DAVISystemExporter
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -20,7 +20,7 @@ namespace worksheet_data_generate
         public const string DialogHostName = "RootDialog";
 
         private readonly MainWindowViewModel _viewModel;
-        private ThrottleDispatcher _throttleDispatcher = new ThrottleDispatcher(50);
+        private ThrottleDispatcher _throttleDispatcher = new(50);
 
         private IExcelWorker? _worker = null;
 
@@ -86,7 +86,7 @@ namespace worksheet_data_generate
                 Width = 600,
                 Height = 400,
                 Filters = "Excel Files(*.xlsx;*.db)|*.xlsx;*.db",
-                CurrentDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+                CurrentDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly()?.Location)
             };
 
             OpenFileDialogResult result = await OpenFileDialog.ShowDialogAsync(DialogHostName, dialogArgs);

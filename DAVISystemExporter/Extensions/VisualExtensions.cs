@@ -1,7 +1,7 @@
-﻿using System.Windows.Media;
-using System.Windows;
+﻿using System.Windows;
+using System.Windows.Media;
 
-namespace worksheet_data_generate.Extensions
+namespace DAVISystemExporter.Extensions
 {
     public static class VisualExtensions
     {
@@ -23,7 +23,7 @@ namespace worksheet_data_generate.Extensions
             {
                 var visual = VisualTreeHelper.GetChild(element, i) as Visual;
 
-                var foundElement = visual.FindVisualDescendant<T>();
+                var foundElement = visual?.FindVisualDescendant<T>();
 
                 if (foundElement != null)
                     return foundElement;

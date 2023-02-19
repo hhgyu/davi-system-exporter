@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+﻿using DAVISystemExporter.Utils;
+using Microsoft.Win32;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -8,9 +9,8 @@ using System.Linq;
 using System.Management;
 using System.Text;
 using System.Windows.Threading;
-using worksheet_data_generate.Utils;
 
-namespace worksheet_data_generate.Domain
+namespace DAVISystemExporter.Domain
 {
     public class SerialPortItem
     {
