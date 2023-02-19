@@ -346,6 +346,8 @@ namespace DAVISystemExporter
 
             lock (_currentExcelDatas)
             {
+                _currentExcelDatas.Clear();
+
                 _logExcelDatas.Clear();
             }
             
@@ -414,8 +416,6 @@ namespace DAVISystemExporter
             lock (_currentExcelDatas)
             {
                 _isStop = true;
-
-                _currentExcelDatas.Clear();
             }
 
             var t = _thread;
