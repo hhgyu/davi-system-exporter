@@ -282,13 +282,12 @@ namespace DAVISystemExporter.Domain
                     case SerialData.Chars:
 
                         byte[] newLine = port.Encoding.GetBytes("\r\n");
-                        int lastCheckdPostion = _buffer.Count < newLine.Length ? 0 : _buffer.Count - newLine.Length;
 
                         byte[] data = ArrayPool<byte>.Shared.Rent(port.BytesToRead);
                         try
                         {
                             int readBytes = port.Read(data, 0, data.Length);
-                            _buffer.AddRange(data);
+                            _buffer.AddRange(data.Take(readBytes));
                             message = $"{port.Encoding.GetString(data)}";
                         }
                         finally
@@ -296,10 +295,10 @@ namespace DAVISystemExporter.Domain
                             ArrayPool<byte>.Shared.Return(data);
                         }
 
-                        if (_buffer.Count > lastCheckdPostion)
+                        if (_buffer.Count > 0)
                         {
                             var events = new List<ReceivedEventArgs>();
-                            int findIndex = findSequence(_buffer, lastCheckdPostion, newLine);
+                            int findIndex = findSequence(_buffer, 0, newLine);
                             while (findIndex >= 0)
                             {
                                 int endIndex = findIndex;
@@ -315,7 +314,7 @@ namespace DAVISystemExporter.Domain
                                     string lastSufix = "@";
                                     int startIndex = m.IndexOf("$");
                                     endIndex = m.LastIndexOf(lastSufix);
-                                    if (startIndex == 0 && endIndex == m.Length - lastSufix.Length)
+                                    if (startIndex >= 0 && endIndex == m.Length - lastSufix.Length)
                                     {
                                         events.Add(new ReceivedEventArgs
                                         {
