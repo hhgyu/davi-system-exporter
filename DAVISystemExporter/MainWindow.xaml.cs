@@ -105,7 +105,12 @@ namespace DAVISystemExporter
                 _worker.Stoped += Worker_Stoped;
                 if (!_worker.Open(result.File, out string errorMessage))
                 {
-                    await DialogHost.Show(errorMessage, dialogIdentifier: DialogHostName);
+                    //await DialogHost.Show(errorMessage, dialogIdentifier: DialogHostName);
+
+                    if (Snackbar.MessageQueue is { } messageQueue)
+                    {
+                        await Task.Factory.StartNew(() => messageQueue.Enqueue(errorMessage));
+                    }
                 }
                 else
                 {
@@ -139,7 +144,13 @@ namespace DAVISystemExporter
             }
             catch (Exception) { }
 
-            await DialogHost.Show("엑셀이 확인 되지 않습니다", dialogIdentifier: DialogHostName);
+            // await DialogHost.Show("엑셀이 확인 되지 않습니다", dialogIdentifier: DialogHostName);
+
+            if (Snackbar.MessageQueue is { } messageQueue)
+            {
+                await Task.Factory.StartNew(() => messageQueue.Enqueue("엑셀이 확인 되지 않습니다"));
+            }
+
             Close();
         }
 
