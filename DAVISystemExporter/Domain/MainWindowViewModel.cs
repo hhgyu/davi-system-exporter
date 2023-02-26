@@ -311,14 +311,15 @@ namespace DAVISystemExporter.Domain
 
                                 if (_data_parse_start)
                                 {
-                                    string lastSufix = "@";
-                                    int startIndex = m.IndexOf("$");
+                                    string startPrefix = "$E";
+                                    string lastSufix = "$E";
+                                    int startIndex = m.IndexOf(startPrefix);
                                     endIndex = m.LastIndexOf(lastSufix);
                                     if (startIndex >= 0 && endIndex == m.Length - lastSufix.Length)
                                     {
                                         events.Add(new ReceivedEventArgs
                                         {
-                                            Values = m.Substring(startIndex + 1, m.Length - lastSufix.Length - (startIndex + 1)).Split(",")
+                                            Values = m.Substring(startIndex + startPrefix.Length, m.Length - lastSufix.Length - (startIndex + startPrefix.Length)).Split(",")
                                         });
                                     }
                                 }
