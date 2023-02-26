@@ -311,7 +311,7 @@ namespace DAVISystemExporter.Domain
 
                                 if (_data_parse_start)
                                 {
-                                    string startPrefix = "$E";
+                                    string startPrefix = "D$";
                                     string lastSufix = "$E";
                                     int startIndex = m.IndexOf(startPrefix);
                                     endIndex = m.LastIndexOf(lastSufix);
