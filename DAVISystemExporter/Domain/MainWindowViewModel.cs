@@ -281,7 +281,7 @@ namespace DAVISystemExporter.Domain
                 {
                     case SerialData.Chars:
 
-                        byte[] newLine = port.Encoding.GetBytes("\r\n");
+                        byte[] newLine = port.Encoding.GetBytes(port.NewLine);
 
                         byte[] data = ArrayPool<byte>.Shared.Rent(port.BytesToRead);
                         try
