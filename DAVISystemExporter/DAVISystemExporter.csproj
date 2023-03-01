@@ -7,6 +7,14 @@
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
     <ApplicationIcon>favicon.ico</ApplicationIcon>
+    <!--
+    <Authors>DAVISystemExporter</Authors>
+    <Company>DAVISystemExporter</Company>
+    <ProductName>DAVISystemExporter</ProductName>
+    <Product>DAVISystemExporter</Product>
+    <Description>DAVISystemExporter</Description>
+    <AssemblyName>DAVISystemExporter</AssemblyName>
+    -->
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
