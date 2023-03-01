@@ -8,7 +8,7 @@
         xmlns:local="clr-namespace:DAVISystemExporter"
         xmlns:converters="clr-namespace:DAVISystemExporter.Converters"
         mc:Ignorable="d"
-        Title="DAVI 시스템" Height="450" Width="400"
+        Title="DAVI 실시간 데이터 수집" Height="450" Width="400"
         Loaded="Window_Loaded"
         Closed="Window_Closed">
     <Window.Resources>
